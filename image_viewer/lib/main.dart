@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:photo_view/photo_view.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:collection/collection.dart'; // 追加
 
@@ -28,11 +27,18 @@ class ImageViewerPage extends StatefulWidget {
 class _ImageViewerPageState extends State<ImageViewerPage> {
   List<File> images = [];
   int currentIndex = 0;
+  final ScrollController _thumbController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _requestPermission();
+  }
+
+  @override
+  void dispose() {
+    _thumbController.dispose();
+    super.dispose();
   }
 
   Future<void> _requestPermission() async {
@@ -74,16 +80,28 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
     }
   }
 
-  void showPrev() {
+  void updateCurrentIndex(int idx) {
     setState(() {
-      currentIndex = (currentIndex - 1 + images.length) % images.length;
+      currentIndex = idx;
     });
+    // サムネイルを中央付近にスクロール
+    _thumbController.animateTo(
+      (idx * 96.0).toDouble(), // サムネイル幅+マージン(80+8*2)
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.ease,
+    );
+  }
+
+  void showPrev() {
+    if (images.isEmpty) return;
+    int idx = (currentIndex - 1 + images.length) % images.length;
+    updateCurrentIndex(idx);
   }
 
   void showNext() {
-    setState(() {
-      currentIndex = (currentIndex + 1) % images.length;
-    });
+    if (images.isEmpty) return;
+    int idx = (currentIndex + 1) % images.length;
+    updateCurrentIndex(idx);
   }
 
   @override
@@ -109,41 +127,19 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
           : Column(
               children: [
                 Expanded(
-                  child: Stack(
-                    children: [
-                      PhotoView(
-                        imageProvider: FileImage(images[currentIndex]),
-                        minScale: PhotoViewComputedScale.contained * 0.5,
-                        maxScale: PhotoViewComputedScale.covered * 3.0,
-                        initialScale: PhotoViewComputedScale.contained,
-                        backgroundDecoration: const BoxDecoration(
-                          color: Colors.black,
-                        ),
-                        heroAttributes: PhotoViewHeroAttributes(
-                          tag: images[currentIndex].path,
-                        ),
-                      ),
-                      Positioned(
-                        left: 0,
-                        top: 0,
-                        bottom: 0,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.translucent,
-                          onTap: showPrev,
-                          child: const SizedBox(width: 60),
-                        ),
-                      ),
-                      Positioned(
-                        right: 0,
-                        top: 0,
-                        bottom: 0,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.translucent,
-                          onTap: showNext,
-                          child: const SizedBox(width: 60),
-                        ),
-                      ),
-                    ],
+                  child: Container(
+                    color: Colors.black,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: images.length,
+                      itemBuilder: (context, idx) {
+                        return Image.file(
+                          images[idx],
+                          fit: BoxFit.contain,
+                          height: MediaQuery.of(context).size.height - 200,
+                        );
+                      },
+                    ),
                   ),
                 ),
                 Container(
@@ -152,11 +148,12 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                   child: Scrollbar(
                     thumbVisibility: true,
                     child: ListView.builder(
+                      controller: _thumbController,
                       scrollDirection: Axis.horizontal,
                       itemCount: images.length,
                       itemBuilder: (context, idx) {
                         return GestureDetector(
-                          onTap: () => setState(() => currentIndex = idx),
+                          onTap: () => updateCurrentIndex(idx),
                           child: Container(
                             margin: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
