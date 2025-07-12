@@ -188,13 +188,15 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                       scrollDirection: Axis.horizontal,
                       itemCount: images.length,
                       itemBuilder: (context, idx) {
-                        return Image.file(
-                          images[idx],
-                          fit: BoxFit.contain,
-                          height: MediaQuery.of(context).size.height - 200,
-                          width:
-                              MediaQuery.of(context).size.height -
-                              200, // 正方形で仮定
+                        final double imgSize =
+                            MediaQuery.of(context).size.height - 200;
+                        return SizedBox(
+                          width: imgSize - 1, // 1pxだけ小さくして隙間を詰める
+                          height: imgSize - 1,
+                          child: Image.file(
+                            images[idx],
+                            fit: BoxFit.cover, // 端まで詰める
+                          ),
                         );
                       },
                     ),
