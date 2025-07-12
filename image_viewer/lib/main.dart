@@ -38,16 +38,29 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
     await Permission.storage.request();
   }
 
-  Future<void> pickImages() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      allowMultiple: true,
-      type: FileType.image,
-    );
-    if (result != null) {
-      setState(() {
-        images = result.paths.map((p) => File(p!)).toList();
-        currentIndex = 0;
-      });
+  Future<void> pickFolderImages() async {
+    String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+    if (selectedDirectory != null) {
+      final dir = Directory(selectedDirectory);
+      final files = dir
+          .listSync()
+          .whereType<File>()
+          .where(
+            (f) =>
+                f.path.toLowerCase().endsWith('.jpg') ||
+                f.path.toLowerCase().endsWith('.jpeg') ||
+                f.path.toLowerCase().endsWith('.png') ||
+                f.path.toLowerCase().endsWith('.gif') ||
+                f.path.toLowerCase().endsWith('.webp') ||
+                f.path.toLowerCase().endsWith('.bmp'),
+          )
+          .toList();
+      if (files.isNotEmpty) {
+        setState(() {
+          images = files;
+          currentIndex = 0;
+        });
+      }
     }
   }
 
@@ -71,16 +84,16 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.folder_open),
-            onPressed: pickImages,
-            tooltip: '画像を選択',
+            onPressed: pickFolderImages,
+            tooltip: 'フォルダを選択',
           ),
         ],
       ),
       body: images.isEmpty
           ? Center(
               child: ElevatedButton(
-                onPressed: pickImages,
-                child: const Text('画像を選択'),
+                onPressed: pickFolderImages,
+                child: const Text('フォルダを選択'),
               ),
             )
           : Column(
