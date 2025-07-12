@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:collection/collection.dart'; // 追加
 
 void main() => runApp(const MyApp());
 
@@ -55,6 +56,15 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                 f.path.toLowerCase().endsWith('.bmp'),
           )
           .toList();
+
+      // ナチュラルソートで並べ替え
+      files.sort(
+        (a, b) => compareNatural(
+          a.path.split(Platform.pathSeparator).last.toLowerCase(),
+          b.path.split(Platform.pathSeparator).last.toLowerCase(),
+        ),
+      );
+
       if (files.isNotEmpty) {
         setState(() {
           images = files;
@@ -139,31 +149,34 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                 Container(
                   color: Colors.white,
                   height: 100,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: images.length,
-                    itemBuilder: (context, idx) {
-                      return GestureDetector(
-                        onTap: () => setState(() => currentIndex = idx),
-                        child: Container(
-                          margin: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: idx == currentIndex
-                                  ? Colors.blue
-                                  : Colors.transparent,
-                              width: 3,
+                  child: Scrollbar(
+                    thumbVisibility: true,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: images.length,
+                      itemBuilder: (context, idx) {
+                        return GestureDetector(
+                          onTap: () => setState(() => currentIndex = idx),
+                          child: Container(
+                            margin: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: idx == currentIndex
+                                    ? Colors.blue
+                                    : Colors.transparent,
+                                width: 3,
+                              ),
+                            ),
+                            child: Image.file(
+                              images[idx],
+                              width: 80,
+                              height: 80,
+                              fit: BoxFit.cover,
                             ),
                           ),
-                          child: Image.file(
-                            images[idx],
-                            width: 80,
-                            height: 80,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
                 ),
                 Padding(
