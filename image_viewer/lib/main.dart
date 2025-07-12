@@ -47,6 +47,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
 
   Future<void> pickFolderImages() async {
     String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+    print('selectedDirectory: $selectedDirectory');
     if (selectedDirectory != null) {
       final dir = Directory(selectedDirectory);
       final files = dir
@@ -62,6 +63,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                 f.path.toLowerCase().endsWith('.bmp'),
           )
           .toList();
+      print('画像ファイル数: ${files.length}');
 
       // ナチュラルソートで並べ替え
       files.sort(
@@ -81,24 +83,29 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
   }
 
   void updateCurrentIndex(int idx) {
+    print('updateCurrentIndex: $idx, file: ${images[idx].path}');
     setState(() {
       currentIndex = idx;
     });
     // サムネイルを中央付近にスクロール
     _thumbController.animateTo(
-      (idx * 96.0).toDouble(), // サムネイル幅+マージン(80+8*2)
+      (idx * 96.0).toDouble(),
       duration: const Duration(milliseconds: 300),
       curve: Curves.ease,
     );
   }
 
   void showPrev() {
+    print(
+      'showPrev: $currentIndex → ${(currentIndex - 1 + images.length) % images.length}',
+    );
     if (images.isEmpty) return;
     int idx = (currentIndex - 1 + images.length) % images.length;
     updateCurrentIndex(idx);
   }
 
   void showNext() {
+    print('showNext: $currentIndex → ${(currentIndex + 1) % images.length}');
     if (images.isEmpty) return;
     int idx = (currentIndex + 1) % images.length;
     updateCurrentIndex(idx);
@@ -147,8 +154,9 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                   height: 100,
                   child: Scrollbar(
                     thumbVisibility: true,
+                    controller: _thumbController, // ← 追加
                     child: ListView.builder(
-                      controller: _thumbController,
+                      controller: _thumbController, // ← 追加
                       scrollDirection: Axis.horizontal,
                       itemCount: images.length,
                       itemBuilder: (context, idx) {
