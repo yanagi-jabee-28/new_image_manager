@@ -41,6 +41,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
   int currentIndex = 0;
   final ScrollController _mainScrollController = ScrollController();
   final ScrollController _thumbController = ScrollController();
+  bool _isUserSelecting = false; // ★追加
 
   @override
   void initState() {
@@ -99,9 +100,9 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
 
   // メイン画像のスクロール位置からcurrentIndexを更新
   void _onMainScroll() {
+    if (_isUserSelecting) return; // ★ユーザー選択中は自動スクロールしない
     if (images.isEmpty) return;
-    // 画像1枚あたりの幅を計算（高さでfit: BoxFit.containなので、ここは仮に300とする。必要に応じて調整）
-    double imageWidth = MediaQuery.of(context).size.height - 200; // 画像の高さ=幅
+    double imageWidth = MediaQuery.of(context).size.height - 200;
     double scrollCenter =
         _mainScrollController.offset + MediaQuery.of(context).size.width / 2;
     int idx = (scrollCenter ~/ imageWidth).clamp(0, images.length - 1);
@@ -118,23 +119,40 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
     }
   }
 
-  void updateCurrentIndex(int idx) {
+  Future<void> updateCurrentIndex(int idx) async {
+    _isUserSelecting = true; // ★ユーザー操作開始
+    _mainScrollController.removeListener(_onMainScroll);
     setState(() {
       currentIndex = idx;
     });
-    // メイン画像をその画像の位置までスクロール
     double imageWidth = MediaQuery.of(context).size.height - 200;
-    _mainScrollController.animateTo(
+    await _mainScrollController.animateTo(
       (idx * imageWidth),
       duration: const Duration(milliseconds: 300),
       curve: Curves.ease,
     );
-    // サムネイルも追従
-    _thumbController.animateTo(
-      (idx * 96.0).toDouble(),
+    if (!mounted) return;
+
+    double thumbWidth = 80 + 16;
+    double containerWidth = MediaQuery.of(context).size.width;
+    double listWidth = images.length * thumbWidth;
+    double target = idx * thumbWidth - containerWidth / 2 + thumbWidth / 2;
+    double maxScroll = (_thumbController.position.maxScrollExtent);
+
+    if (listWidth <= containerWidth) {
+      target = 0;
+    } else {
+      if (target < 0) target = 0;
+      if (target > maxScroll) target = maxScroll;
+    }
+
+    await _thumbController.animateTo(
+      target,
       duration: const Duration(milliseconds: 300),
       curve: Curves.ease,
     );
+    _mainScrollController.addListener(_onMainScroll);
+    _isUserSelecting = false; // ★ユーザー操作終了
   }
 
   void showPrev() {
