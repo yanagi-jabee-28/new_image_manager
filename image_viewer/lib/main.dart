@@ -100,7 +100,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
 
   // メイン画像のスクロール位置からcurrentIndexを更新
   void _onMainScroll() {
-    if (_isUserSelecting) return; // ★ユーザー選択中は自動スクロールしない
+    if (_isUserSelecting) return; // ★ユーザー選択中は自動スクロールも完全に抑制
     if (images.isEmpty) return;
     double imageWidth = MediaQuery.of(context).size.height - 200;
     double scrollCenter =
@@ -110,12 +110,15 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
       setState(() {
         currentIndex = idx;
       });
-      // サムネイルも追従
-      _thumbController.animateTo(
-        (idx * 96.0).toDouble(),
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.ease,
-      );
+      // ★ここでサムネイルも追従させたい場合のみanimateToを呼ぶ
+      // だが_isUserSelecting中は呼ばないので、サムネイル選択時は追従しない
+      if (!_isUserSelecting) {
+        _thumbController.animateTo(
+          (idx * 96.0).toDouble(),
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.ease,
+        );
+      }
     }
   }
 
@@ -132,25 +135,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
       curve: Curves.ease,
     );
     if (!mounted) return;
-
-    double thumbWidth = 80 + 16;
-    double containerWidth = MediaQuery.of(context).size.width;
-    double listWidth = images.length * thumbWidth;
-    double target = idx * thumbWidth - containerWidth / 2 + thumbWidth / 2;
-    double maxScroll = (_thumbController.position.maxScrollExtent);
-
-    if (listWidth <= containerWidth) {
-      target = 0;
-    } else {
-      if (target < 0) target = 0;
-      if (target > maxScroll) target = maxScroll;
-    }
-
-    await _thumbController.animateTo(
-      target,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.ease,
-    );
+    // サムネイルリストの自動スクロールは行わない
     _mainScrollController.addListener(_onMainScroll);
     _isUserSelecting = false; // ★ユーザー操作終了
   }
