@@ -4,12 +4,12 @@
 			"name": "Win32",
 			"includePath": [
 				"${workspaceFolder}/**",
-				"${env:USERPROFILE}/flutter/.pub-cache/hosted/pub.dev/permission_handler_windows-<バージョン>/windows/include"
+				"C:/Users/kaito/flutter/.pub-cache/hosted/pub.dev/permission_handler_windows-*/windows/include"
 			],
 			"browse": {
 				"path": [
 					"${workspaceFolder}/**",
-					"${env:USERPROFILE}/flutter/.pub-cache/hosted/pub.dev/permission_handler_windows-<バージョン>/windows/include"
+					"C:/Users/kaito/flutter/.pub-cache/hosted/pub.dev/permission_handler_windows-*/windows/include"
 				]
 			},
 			"defines": [],
