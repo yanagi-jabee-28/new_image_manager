@@ -3,8 +3,20 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:collection/collection.dart'; // 追加
+import 'package:logging/logging.dart';
 
-void main() => runApp(const MyApp());
+final _logger = Logger('ImageViewer');
+
+void main() {
+  // ログ出力の設定
+  Logger.root.level = Level.ALL;
+  Logger.root.onRecord.listen((record) {
+    // printの代わりにここで出力
+    // ignore: avoid_print
+    print('${record.level.name}: ${record.time}: ${record.message}');
+  });
+  runApp(const MyApp());
+}
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -47,7 +59,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
 
   Future<void> pickFolderImages() async {
     String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
-    print('selectedDirectory: $selectedDirectory');
+    _logger.info('selectedDirectory: $selectedDirectory');
     if (selectedDirectory != null) {
       final dir = Directory(selectedDirectory);
       final files = dir
@@ -63,7 +75,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                 f.path.toLowerCase().endsWith('.bmp'),
           )
           .toList();
-      print('画像ファイル数: ${files.length}');
+      _logger.info('画像ファイル数: ${files.length}');
 
       // ナチュラルソートで並べ替え
       files.sort(
@@ -83,7 +95,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
   }
 
   void updateCurrentIndex(int idx) {
-    print('updateCurrentIndex: $idx, file: ${images[idx].path}');
+    _logger.info('updateCurrentIndex: $idx, file: ${images[idx].path}');
     setState(() {
       currentIndex = idx;
     });
@@ -96,7 +108,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
   }
 
   void showPrev() {
-    print(
+    _logger.info(
       'showPrev: $currentIndex → ${(currentIndex - 1 + images.length) % images.length}',
     );
     if (images.isEmpty) return;
@@ -105,7 +117,9 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
   }
 
   void showNext() {
-    print('showNext: $currentIndex → ${(currentIndex + 1) % images.length}');
+    _logger.info(
+      'showNext: $currentIndex → ${(currentIndex + 1) % images.length}',
+    );
     if (images.isEmpty) return;
     int idx = (currentIndex + 1) % images.length;
     updateCurrentIndex(idx);
@@ -136,11 +150,24 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                 Expanded(
                   child: Container(
                     color: Colors.black,
-                    child: Center(
-                      child: Image.file(
-                        images[currentIndex],
-                        fit: BoxFit.contain,
-                        height: MediaQuery.of(context).size.height - 200,
+                    child: GestureDetector(
+                      onHorizontalDragEnd: (details) {
+                        if (details.primaryVelocity != null) {
+                          if (details.primaryVelocity! < 0) {
+                            // 左スワイプ→次へ
+                            showNext();
+                          } else if (details.primaryVelocity! > 0) {
+                            // 右スワイプ→前へ
+                            showPrev();
+                          }
+                        }
+                      },
+                      child: Center(
+                        child: Image.file(
+                          images[currentIndex],
+                          fit: BoxFit.contain,
+                          height: MediaQuery.of(context).size.height - 200,
+                        ),
                       ),
                     ),
                   ),
