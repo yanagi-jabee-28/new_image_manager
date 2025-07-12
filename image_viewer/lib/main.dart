@@ -39,16 +39,19 @@ class ImageViewerPage extends StatefulWidget {
 class _ImageViewerPageState extends State<ImageViewerPage> {
   List<File> images = [];
   int currentIndex = 0;
+  final ScrollController _mainScrollController = ScrollController();
   final ScrollController _thumbController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _requestPermission();
+    _mainScrollController.addListener(_onMainScroll);
   }
 
   @override
   void dispose() {
+    _mainScrollController.dispose();
     _thumbController.dispose();
     super.dispose();
   }
@@ -94,12 +97,39 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
     }
   }
 
+  // メイン画像のスクロール位置からcurrentIndexを更新
+  void _onMainScroll() {
+    if (images.isEmpty) return;
+    // 画像1枚あたりの幅を計算（高さでfit: BoxFit.containなので、ここは仮に300とする。必要に応じて調整）
+    double imageWidth = MediaQuery.of(context).size.height - 200; // 画像の高さ=幅
+    double scrollCenter =
+        _mainScrollController.offset + MediaQuery.of(context).size.width / 2;
+    int idx = (scrollCenter ~/ imageWidth).clamp(0, images.length - 1);
+    if (idx != currentIndex) {
+      setState(() {
+        currentIndex = idx;
+      });
+      // サムネイルも追従
+      _thumbController.animateTo(
+        (idx * 96.0).toDouble(),
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.ease,
+      );
+    }
+  }
+
   void updateCurrentIndex(int idx) {
-    _logger.info('updateCurrentIndex: $idx, file: ${images[idx].path}');
     setState(() {
       currentIndex = idx;
     });
-    // サムネイルを中央付近にスクロール
+    // メイン画像をその画像の位置までスクロール
+    double imageWidth = MediaQuery.of(context).size.height - 200;
+    _mainScrollController.animateTo(
+      (idx * imageWidth),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.ease,
+    );
+    // サムネイルも追従
     _thumbController.animateTo(
       (idx * 96.0).toDouble(),
       duration: const Duration(milliseconds: 300),
@@ -150,25 +180,20 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                 Expanded(
                   child: Container(
                     color: Colors.black,
-                    child: GestureDetector(
-                      onHorizontalDragEnd: (details) {
-                        if (details.primaryVelocity != null) {
-                          if (details.primaryVelocity! < 0) {
-                            // 左スワイプ→次へ
-                            showNext();
-                          } else if (details.primaryVelocity! > 0) {
-                            // 右スワイプ→前へ
-                            showPrev();
-                          }
-                        }
-                      },
-                      child: Center(
-                        child: Image.file(
-                          images[currentIndex],
+                    child: ListView.builder(
+                      controller: _mainScrollController,
+                      scrollDirection: Axis.horizontal,
+                      itemCount: images.length,
+                      itemBuilder: (context, idx) {
+                        return Image.file(
+                          images[idx],
                           fit: BoxFit.contain,
                           height: MediaQuery.of(context).size.height - 200,
-                        ),
-                      ),
+                          width:
+                              MediaQuery.of(context).size.height -
+                              200, // 正方形で仮定
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -177,9 +202,9 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                   height: 100,
                   child: Scrollbar(
                     thumbVisibility: true,
-                    controller: _thumbController, // ← 追加
+                    controller: _thumbController,
                     child: ListView.builder(
-                      controller: _thumbController, // ← 追加
+                      controller: _thumbController,
                       scrollDirection: Axis.horizontal,
                       itemCount: images.length,
                       itemBuilder: (context, idx) {
