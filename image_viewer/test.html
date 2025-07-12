@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+	<title>多機能 画像ビューア (高速読み込み対応)</title>
+	<script src="https://cdn.tailwindcss.com"></script>
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+	<style>
+		body {
+			font-family: 'Inter', 'Noto Sans JP', sans-serif;
+			overscroll-behavior: none;
+		}
+
+		#thumbnail-container::-webkit-scrollbar {
+			height: 8px;
+		}
+
+		#thumbnail-container::-webkit-scrollbar-track {
+			background: #f1f1f1;
+			border-radius: 10px;
+		}
+
+		#thumbnail-container::-webkit-scrollbar-thumb {
+			background: #888;
+			border-radius: 10px;
+		}
+
+		#thumbnail-container::-webkit-scrollbar-thumb:hover {
+			background: #555;
+		}
+
+		.thumbnail.active {
+			border-color: #3b82f6;
+			box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+		}
+
+		#viewer-container {
+			touch-action: none;
+		}
+
+		#main-image {
+			-webkit-user-drag: none;
+			user-select: none;
+			-moz-user-select: none;
+			-webkit-user-select: none;
+			-ms-user-select: none;
+			transition: transform 0.2s ease-out;
+			cursor: grab;
+		}
+
+		#main-image.dragging {
+			cursor: grabbing;
+		}
+
+		.nav-zone {
+			transition: background-color 0.2s ease-in-out;
+		}
+
+		.nav-zone:hover {
+			background-color: rgba(255, 255, 255, 0.1);
+		}
+	</style>
+</head>
+
+<body class="bg-gray-100 text-gray-800 flex flex-col h-screen overflow-hidden">
+
+	<header class="bg-white shadow-md p-4 z-20">
+		<div class="container mx-auto flex justify-between items-center">
+			<h1 class="text-2xl font-bold text-gray-700">多機能 画像ビューア</h1>
+			<div>
+				<label for="folder-input"
+					class="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300">
+					フォルダを選択
+				</label>
+				<input type="file" id="folder-input" webkitdirectory directory multiple class="hidden">
+			</div>
+		</div>
+	</header>
+
+	<main id="main-content" class="container mx-auto flex-grow flex flex-col p-4 overflow-hidden">
+		<div id="viewer-container"
+			class="flex-grow bg-gray-900 rounded-lg flex items-center justify-center relative overflow-hidden mb-4 shadow-lg">
+			<div id="initial-message" class="text-center text-gray-400 p-8 z-10">
+				<svg class="w-16 h-16 mx-auto mb-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+					xmlns="http://www.w3.org/2000/svg">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+						d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+				</svg>
+				<h2 class="text-xl font-semibold mb-2">フォルダを選択してください</h2>
+				<p>画面の左端で戻る、右端で進みます。</p>
+				<p class="mt-4 text-sm">ダブルクリック/ダブルタップでズームリセット</p>
+			</div>
+
+			<img id="main-image" src="" alt="メイン画像" class="max-h-full max-w-full object-contain hidden">
+
+			<div id="left-nav-zone" class="nav-zone absolute top-0 left-0 h-full w-1/6 z-20 cursor-pointer"></div>
+			<div id="right-nav-zone" class="nav-zone absolute top-0 right-0 h-full w-1/6 z-20 cursor-pointer"></div>
+
+			<p id="filename-display"
+				class="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black bg-opacity-50 text-white text-sm px-2 py-1 rounded z-10">
+			</p>
+		</div>
+
+		<div class="flex-shrink-0 bg-white p-3 rounded-lg shadow-md">
+			<div id="thumbnail-container" class="flex space-x-3 overflow-x-auto pb-2"></div>
+		</div>
+	</main>
+
+	<script>
+		document.addEventListener('DOMContentLoaded', () => {
+			// 要素の取得
+			const folderInput = document.getElementById('folder-input');
+			const mainImage = document.getElementById('main-image');
+			const filenameDisplay = document.getElementById('filename-display');
+			const thumbnailContainer = document.getElementById('thumbnail-container');
+			const initialMessage = document.getElementById('initial-message');
+			const viewerContainer = document.getElementById('viewer-container');
+			const leftNavZone = document.getElementById('left-nav-zone');
+			const rightNavZone = document.getElementById('right-nav-zone');
+
+			// 状態管理変数
+			let imageFiles = [];
+			let currentIndex = -1;
+
+			// ズーム＆パン機能の変数
+			let scale = 1;
+			let panning = false;
+			let pointX = 0;
+			let pointY = 0;
+			let start = { x: 0, y: 0 };
+
+			// スワイプ機能の変数
+			let isSwiping = false;
+			let touchStartX = 0;
+
+			// --- イベントリスナー ---
+			folderInput.addEventListener('change', handleFileSelect);
+			document.addEventListener('keydown', handleKeyDown);
+
+			leftNavZone.addEventListener('click', showPrevImage);
+			rightNavZone.addEventListener('click', showNextImage);
+
+			viewerContainer.addEventListener('wheel', handleWheel);
+			viewerContainer.addEventListener('mousedown', handleMouseDown);
+			viewerContainer.addEventListener('mousemove', handleMouseMove);
+			viewerContainer.addEventListener('mouseup', handleMouseUp);
+			viewerContainer.addEventListener('mouseleave', handleMouseUp);
+			viewerContainer.addEventListener('touchstart', handleTouchStart, { passive: false });
+			viewerContainer.addEventListener('touchmove', handleTouchMove, { passive: false });
+			viewerContainer.addEventListener('touchend', handleTouchEnd);
+			viewerContainer.addEventListener('dblclick', resetZoom);
+
+
+			// --- ファイル処理 ---
+			function handleFileSelect(event) {
+				const files = Array.from(event.target.files);
+				const supportedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'];
+				imageFiles = files.filter(file => supportedTypes.includes(file.type));
+
+				imageFiles.sort((a, b) => {
+					const numA = extractNumber(a.name);
+					const numB = extractNumber(b.name);
+					return (numA !== null && numB !== null) ? numA - numB : a.name.localeCompare(b.name);
+				});
+
+				if (imageFiles.length > 0) {
+					initialMessage.classList.add('hidden');
+					mainImage.classList.remove('hidden');
+					createThumbnails();
+					displayImage(0);
+				} else {
+					alert('選択されたフォルダに表示可能な画像ファイルが見つかりませんでした。');
+					resetViewer();
+				}
+			}
+
+			function extractNumber(filename) {
+				const match = filename.match(/\((\d+)\)/);
+				return match ? parseInt(match[1], 10) : null;
+			}
+
+			// --- 画像表示 ---
+			function displayImage(index) {
+				if (index < 0 || index >= imageFiles.length) return;
+				currentIndex = index;
+				const file = imageFiles[index];
+
+				resetZoom();
+				// URL.createObjectURLは高速ですが、念のため古いURLは解放します
+				if (mainImage.src) {
+					URL.revokeObjectURL(mainImage.src);
+				}
+				mainImage.src = URL.createObjectURL(file);
+				filenameDisplay.textContent = `${file.name} (${index + 1}/${imageFiles.length})`;
+				updateActiveThumbnail();
+
+				// ★★★ 先読み（プリロード）処理を呼び出す ★★★
+				preloadImages();
+			}
+
+			// ★★★ 画像の先読み（プリロード）機能 ★★★
+			function preloadImages() {
+				if (imageFiles.length <= 1) return;
+
+				// 次の画像を先読み
+				const nextIndex = (currentIndex + 1) % imageFiles.length;
+				const nextImage = new Image();
+				nextImage.src = URL.createObjectURL(imageFiles[nextIndex]);
+
+				// 前の画像を先読み
+				const prevIndex = (currentIndex - 1 + imageFiles.length) % imageFiles.length;
+				const prevImage = new Image();
+				prevImage.src = URL.createObjectURL(imageFiles[prevIndex]);
+			}
+
+
+			function showPrevImage(e) {
+				if (e) e.stopPropagation();
+				if (imageFiles.length === 0) return;
+				const newIndex = (currentIndex - 1 + imageFiles.length) % imageFiles.length;
+				displayImage(newIndex);
+			}
+
+			function showNextImage(e) {
+				if (e) e.stopPropagation();
+				if (imageFiles.length === 0) return;
+				const newIndex = (currentIndex + 1) % imageFiles.length;
+				displayImage(newIndex);
+			}
+
+			// --- UI更新 ---
+			function createThumbnails() {
+				thumbnailContainer.innerHTML = '';
+				imageFiles.forEach((file, index) => {
+					const thumb = document.createElement('img');
+					thumb.src = URL.createObjectURL(file);
+					thumb.alt = `サムネイル ${index + 1}`;
+					thumb.className = 'thumbnail h-20 w-20 object-cover rounded-md cursor-pointer border-4 border-transparent transition-all';
+					thumb.dataset.index = index;
+					thumb.addEventListener('click', () => displayImage(index));
+					thumbnailContainer.appendChild(thumb);
+				});
+			}
+
+			function updateActiveThumbnail() {
+				document.querySelectorAll('.thumbnail').forEach(thumb => {
+					if (parseInt(thumb.dataset.index) === currentIndex) {
+						thumb.classList.add('active');
+						thumb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+					} else {
+						thumb.classList.remove('active');
+					}
+				});
+			}
+
+			function resetViewer() {
+				initialMessage.classList.remove('hidden');
+				mainImage.classList.add('hidden');
+				thumbnailContainer.innerHTML = '';
+				filenameDisplay.textContent = '';
+				imageFiles = [];
+				currentIndex = -1;
+				resetZoom();
+			}
+
+			// --- ズーム＆パンの実装 ---
+			function updateImageTransform() {
+				mainImage.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+			}
+
+			function resetZoom() {
+				scale = 1;
+				pointX = 0;
+				pointY = 0;
+				updateImageTransform();
+			}
+
+			function handleWheel(e) {
+				e.preventDefault();
+				const rect = viewerContainer.getBoundingClientRect();
+				const xs = (e.clientX - rect.left - pointX) / scale;
+				const ys = (e.clientY - rect.top - pointY) / scale;
+				const delta = -e.deltaY;
+				const newScale = scale * (delta > 0 ? 1.1 : 1 / 1.1);
+
+				scale = Math.min(Math.max(newScale, 0.5), 10);
+				pointX = e.clientX - rect.left - xs * scale;
+				pointY = e.clientY - rect.top - ys * scale;
+				updateImageTransform();
+			}
+
+			function handleMouseDown(e) {
+				if (e.target.classList.contains('nav-zone')) return;
+				if (e.button !== 0) return;
+				e.preventDefault();
+				panning = true;
+				mainImage.classList.add('dragging');
+				start.x = e.clientX - pointX;
+				start.y = e.clientY - pointY;
+			}
+
+			function handleMouseMove(e) {
+				if (!panning) return;
+				e.preventDefault();
+				pointX = e.clientX - start.x;
+				pointY = e.clientY - start.y;
+				updateImageTransform();
+			}
+
+			function handleMouseUp(e) {
+				panning = false;
+				mainImage.classList.remove('dragging');
+			}
+
+			// --- タッチ操作 (スワイプ、ピンチズーム、パン) ---
+			let lastTouchEndTime = 0;
+			let initialPinchDistance = 0;
+
+			function handleTouchStart(e) {
+				if (e.target.classList.contains('nav-zone')) {
+					const now = new Date().getTime();
+					if (now - lastTouchEndTime < 300) { resetZoom(); }
+					lastTouchEndTime = now;
+					return;
+				}
+
+				e.preventDefault();
+				const touches = e.touches;
+				if (touches.length === 1) {
+					const now = new Date().getTime();
+					if (now - lastTouchEndTime < 300) {
+						resetZoom();
+						return;
+					}
+					lastTouchEndTime = now;
+
+					touchStartX = touches[0].clientX;
+					if (scale > 1) {
+						panning = true;
+						isSwiping = false;
+						mainImage.classList.add('dragging');
+						start.x = touches[0].clientX - pointX;
+						start.y = touches[0].clientY - pointY;
+					} else {
+						isSwiping = true;
+						panning = false;
+					}
+				} else if (touches.length === 2) {
+					isSwiping = false;
+					panning = false;
+					initialPinchDistance = getPinchDistance(touches);
+				}
+			}
+
+			function handleTouchMove(e) {
+				e.preventDefault();
+				const touches = e.touches;
+
+				if (panning && touches.length === 1) { // パン
+					pointX = touches[0].clientX - start.x;
+					pointY = touches[0].clientY - start.y;
+					updateImageTransform();
+				} else if (touches.length === 2) { // ピンチズーム
+					const newPinchDistance = getPinchDistance(touches);
+					const scaleFactor = newPinchDistance / initialPinchDistance;
+
+					const rect = viewerContainer.getBoundingClientRect();
+					const midPoint = getPinchMidpoint(touches);
+					const xs = (midPoint.x - rect.left - pointX) / scale;
+					const ys = (midPoint.y - rect.top - pointY) / scale;
+
+					scale = Math.min(Math.max(scale * scaleFactor, 0.5), 10);
+					pointX = midPoint.x - rect.left - xs * scale;
+					pointY = midPoint.y - rect.top - ys * scale;
+
+					updateImageTransform();
+					initialPinchDistance = newPinchDistance;
+				}
+			}
+
+			function handleTouchEnd(e) {
+				if (isSwiping && e.changedTouches.length === 1) {
+					const touchEndX = e.changedTouches[0].clientX;
+					const swipeDistance = touchEndX - touchStartX;
+					const swipeThreshold = 50;
+
+					if (Math.abs(swipeDistance) > swipeThreshold) {
+						if (swipeDistance > 0) {
+							showPrevImage();
+						} else {
+							showNextImage();
+						}
+					}
+				}
+
+				panning = false;
+				isSwiping = false;
+				mainImage.classList.remove('dragging');
+				if (e.touches.length < 2) {
+					initialPinchDistance = 0;
+				}
+			}
+
+			function getPinchDistance(touches) {
+				const dx = touches[0].clientX - touches[1].clientX;
+				const dy = touches[0].clientY - touches[1].clientY;
+				return Math.sqrt(dx * dx + dy * dy);
+			}
+
+			function getPinchMidpoint(touches) {
+				return {
+					x: (touches[0].clientX + touches[1].clientX) / 2,
+					y: (touches[0].clientY + touches[1].clientY) / 2,
+				};
+			}
+
+			// --- キーボード操作 ---
+			function handleKeyDown(e) {
+				if (imageFiles.length === 0) return;
+				if (e.key === 'ArrowLeft') showPrevImage();
+				else if (e.key === 'ArrowRight') showNextImage();
+			}
+		});
+	</script>
+</body>
+
+</html>
