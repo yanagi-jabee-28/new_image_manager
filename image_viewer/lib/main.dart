@@ -136,16 +136,12 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                 Expanded(
                   child: Container(
                     color: Colors.black,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: images.length,
-                      itemBuilder: (context, idx) {
-                        return Image.file(
-                          images[idx],
-                          fit: BoxFit.contain,
-                          height: MediaQuery.of(context).size.height - 200,
-                        );
-                      },
+                    child: Center(
+                      child: Image.file(
+                        images[currentIndex],
+                        fit: BoxFit.contain,
+                        height: MediaQuery.of(context).size.height - 200,
+                      ),
                     ),
                   ),
                 ),
