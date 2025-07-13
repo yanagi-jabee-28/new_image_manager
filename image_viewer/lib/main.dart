@@ -38,7 +38,7 @@ class ImageViewerPage extends StatefulWidget {
 }
 
 class _ImageViewerPageState extends State<ImageViewerPage> {
-  List<dynamic> images = [];
+  List<File> images = [];
   int currentIndex = 0;
   final ScrollController _mainScrollController = ScrollController();
   final ScrollController _thumbController = ScrollController();
@@ -266,15 +266,10 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                                 color: Colors.black,
                               ),
                               enableRotation: false,
-                              child: images[idx] is String
-                                  ? Image.asset(
-                                      images[idx],
-                                      fit: BoxFit.contain,
-                                    )
-                                  : Image.file(
-                                      images[idx],
-                                      fit: BoxFit.contain,
-                                    ),
+                              child: Image.file(
+                                images[idx],
+                                fit: BoxFit.contain,
+                              ),
                             ),
                           ),
                         );
@@ -316,19 +311,12 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                                 width: 3,
                               ),
                             ),
-                            child: images[idx] is String
-                                ? Image.asset(
-                                    images[idx],
-                                    width: thumbnailSize,
-                                    height: thumbnailSize,
-                                    fit: BoxFit.cover,
-                                  )
-                                : Image.file(
-                                    images[idx],
-                                    width: thumbnailSize,
-                                    height: thumbnailSize,
-                                    fit: BoxFit.cover,
-                                  ),
+                            child: Image.file(
+                              images[idx],
+                              width: thumbnailSize,
+                              height: thumbnailSize,
+                              fit: BoxFit.cover,
+                            ),
                           ),
                         );
                       },
@@ -338,7 +326,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                 Padding(
                   padding: const EdgeInsets.all(8.0),
                   child: Text(
-                    '${(images[currentIndex] as File).path.split(Platform.pathSeparator).last} (${currentIndex + 1}/${images.length})',
+                    '${images[currentIndex].path.split(Platform.pathSeparator).last} (${currentIndex + 1}/${images.length})',
                     style: const TextStyle(fontSize: 16),
                   ),
                 ),
