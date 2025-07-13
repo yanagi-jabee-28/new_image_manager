@@ -286,7 +286,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                 Padding(
                   padding: const EdgeInsets.all(8.0),
                   child: Text(
-                    '${images[currentIndex].path.split(Platform.pathSeparator).last} (${currentIndex + 1}/${images.length})',
+                    '${images[currentIndex] is String ? (images[currentIndex] as String).split('/').last : (images[currentIndex] as File).path.split(Platform.pathSeparator).last} (${currentIndex + 1}/${images.length})',
                     style: const TextStyle(fontSize: 16),
                   ),
                 ),
