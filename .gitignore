@@ -45,7 +45,7 @@ app.*.map.json
 /android/app/release
 
 # アプリ組み込み写真集をGit追跡除外
-image_viewer/assets/images/1【PHOTOBOOK】Nogizaka46 - Inoue Nagi 1st Photobook『Monologue』/
+image_viewer/assets/images/*
 
 # image_viewer配下のビルド成果物も除外
 image_viewer/build/
