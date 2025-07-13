@@ -42,7 +42,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
   final List<String> assetImages = List.generate(
     100,
     (i) =>
-        "assets/images/1【PHOTOBOOK】Nogizaka46 - Inoue Nagi 1st Photobook『Monologue』/${(i + 1).toString().padLeft(3, '0')}.jpg",
+        "assets/images/nogizaka46_inoue_nagi_photobook/${(i + 1).toString().padLeft(3, '0')}.jpg",
   );
   List<dynamic> images = [];
   int currentIndex = 0;
