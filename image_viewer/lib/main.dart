@@ -58,7 +58,18 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
   }
 
   Future<void> _requestPermission() async {
-    await Permission.storage.request();
+    if (Platform.isAndroid) {
+      if (await Permission.storage.isGranted) return;
+      // Android 13以降はREAD_MEDIA_IMAGES、それ以前はstorage
+      if (await Permission.mediaLibrary.request().isGranted ||
+          await Permission.photos.request().isGranted ||
+          await Permission.storage.request().isGranted) {
+        // 権限取得成功
+      } else {
+        // 権限がない場合の処理
+        _logger.warning('ストレージ権限がありません');
+      }
+    }
   }
 
   Future<void> pickFolderImages() async {
