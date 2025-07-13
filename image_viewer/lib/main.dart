@@ -38,7 +38,13 @@ class ImageViewerPage extends StatefulWidget {
 }
 
 class _ImageViewerPageState extends State<ImageViewerPage> {
-  List<File> images = [];
+  // assets画像リスト（例: 001.jpg～100.jpg）
+  final List<String> assetImages = List.generate(
+    100,
+    (i) =>
+        "assets/images/1【PHOTOBOOK】Nogizaka46 - Inoue Nagi 1st Photobook『Monologue』/${(i + 1).toString().padLeft(3, '0')}.jpg",
+  );
+  List<dynamic> images = [];
   int currentIndex = 0;
   final ScrollController _mainScrollController = ScrollController();
   final ScrollController _thumbController = ScrollController();
@@ -47,6 +53,8 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
   @override
   void initState() {
     super.initState();
+    // 初期表示はassets画像
+    images = List<String>.from(assetImages);
     _requestPermission();
     _mainScrollController.addListener(_onMainScroll);
   }
@@ -117,7 +125,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
 
       if (files.isNotEmpty) {
         setState(() {
-          images = files;
+          images = files; // File型リストに切り替え
           currentIndex = 0;
         });
       }
@@ -216,21 +224,17 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                       itemBuilder: (context, idx) {
                         return SizedBox(
                           width: MediaQuery.of(context).size.width,
-                          height:
-                              MediaQuery.of(context).size.height -
-                              200, // AppBarやサムネイル分を引く
+                          height: MediaQuery.of(context).size.height - 200,
                           child: PhotoView.customChild(
                             minScale: PhotoViewComputedScale.contained,
-                            maxScale:
-                                PhotoViewComputedScale.covered * 3.0, // 3倍まで拡大
+                            maxScale: PhotoViewComputedScale.covered * 3.0,
                             backgroundDecoration: const BoxDecoration(
                               color: Colors.black,
                             ),
                             enableRotation: false,
-                            child: Image.file(
-                              images[idx],
-                              fit: BoxFit.contain, // 画像全体が収まるように
-                            ),
+                            child: images[idx] is String
+                                ? Image.asset(images[idx], fit: BoxFit.contain)
+                                : Image.file(images[idx], fit: BoxFit.contain),
                           ),
                         );
                       },
@@ -260,12 +264,19 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                                 width: 3,
                               ),
                             ),
-                            child: Image.file(
-                              images[idx],
-                              width: 80,
-                              height: 80,
-                              fit: BoxFit.cover,
-                            ),
+                            child: images[idx] is String
+                                ? Image.asset(
+                                    images[idx],
+                                    width: 80,
+                                    height: 80,
+                                    fit: BoxFit.cover,
+                                  )
+                                : Image.file(
+                                    images[idx],
+                                    width: 80,
+                                    height: 80,
+                                    fit: BoxFit.cover,
+                                  ),
                           ),
                         );
                       },

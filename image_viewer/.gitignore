@@ -43,3 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# アプリ組み込み写真集をGit追跡除外
+assets/images/1【PHOTOBOOK】Nogizaka46 - Inoue Nagi 1st Photobook『Monologue』/
+
