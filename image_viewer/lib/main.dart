@@ -93,22 +93,26 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
       _logger.warning('権限がないため画像を表示できません');
       return;
     }
-    final result = await FilePicker.platform.pickFiles(
-      allowMultiple: true,
-      type: FileType.custom,
-      allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'],
-      withData: false,
-      dialogTitle: '画像ファイルを選択してください（ファイル管理アプリ推奨）',
+    String? dirPath = await FilePicker.platform.getDirectoryPath(
+      dialogTitle: '画像フォルダを選択してください（ファイル管理アプリ推奨）',
     );
-    if (result != null && result.files.isNotEmpty) {
-      setState(() {
-        images = result.files
-            .where((f) => f.path != null)
-            .map((f) => File(f.path!))
-            .toList();
-        currentIndex = 0;
-      });
-    }
+    if (dirPath == null) return;
+    final dir = Directory(dirPath);
+    final exts = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
+    final files = await dir
+        .list()
+        .where(
+          (f) =>
+              f is File &&
+              exts.any((ext) => f.path.toLowerCase().endsWith(ext)),
+        )
+        .cast<File>()
+        .toList();
+    files.sort((a, b) => a.path.compareTo(b.path)); // 必要なら自然順ソートに変更可
+    setState(() {
+      images = files;
+      currentIndex = 0;
+    });
   }
 
   // メイン画像のスクロール位置からcurrentIndexを更新
