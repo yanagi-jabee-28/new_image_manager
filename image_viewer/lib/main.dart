@@ -57,22 +57,36 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
     super.dispose();
   }
 
-  Future<void> _requestPermission() async {
+  Future<bool> _requestPermission() async {
     if (Platform.isAndroid) {
-      if (await Permission.storage.isGranted) return;
-      // Android 13以降はREAD_MEDIA_IMAGES、それ以前はstorage
-      if (await Permission.mediaLibrary.request().isGranted ||
-          await Permission.photos.request().isGranted ||
-          await Permission.storage.request().isGranted) {
-        // 権限取得成功
-      } else {
-        // 権限がない場合の処理
-        _logger.warning('ストレージ権限がありません');
+      // Android 13+ 画像権限
+      final photos = Permission.photos;
+      final storage = Permission.storage;
+      PermissionStatus status;
+
+      // まずphotos権限をリクエスト（Android 13+のみ有効）
+      status = await photos.request();
+      if (status.isGranted) return true;
+
+      // それ以外はstorage権限
+      status = await storage.request();
+      if (status.isGranted) return true;
+
+      // 拒否された場合は設定画面へ誘導
+      if (status.isPermanentlyDenied) {
+        await openAppSettings();
       }
+      return false;
     }
+    return true;
   }
 
   Future<void> pickFolderImages() async {
+    bool granted = await _requestPermission();
+    if (!granted) {
+      _logger.warning('権限がないため画像を表示できません');
+      return;
+    }
     String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
     _logger.info('selectedDirectory: $selectedDirectory');
     if (selectedDirectory != null) {
