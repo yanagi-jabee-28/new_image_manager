@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:collection/collection.dart'; // 追加
 import 'package:logging/logging.dart';
+import 'package:photo_view/photo_view.dart';
 
 final _logger = Logger('ImageViewer');
 
@@ -213,14 +214,23 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                       scrollDirection: Axis.horizontal,
                       itemCount: images.length,
                       itemBuilder: (context, idx) {
-                        final double imgSize =
-                            MediaQuery.of(context).size.height - 200;
                         return SizedBox(
-                          width: imgSize - 1, // 1pxだけ小さくして隙間を詰める
-                          height: imgSize - 1,
-                          child: Image.file(
-                            images[idx],
-                            fit: BoxFit.cover, // 端まで詰める
+                          width: MediaQuery.of(context).size.width,
+                          height:
+                              MediaQuery.of(context).size.height -
+                              200, // AppBarやサムネイル分を引く
+                          child: PhotoView.customChild(
+                            minScale: PhotoViewComputedScale.contained,
+                            maxScale:
+                                PhotoViewComputedScale.covered * 3.0, // 3倍まで拡大
+                            backgroundDecoration: const BoxDecoration(
+                              color: Colors.black,
+                            ),
+                            enableRotation: false,
+                            child: Image.file(
+                              images[idx],
+                              fit: BoxFit.contain, // 画像全体が収まるように
+                            ),
                           ),
                         );
                       },
