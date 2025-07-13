@@ -328,13 +328,22 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
           .toList();
       _logger.info('画像ファイル数: ${files.length}');
 
-      // ナチュラルソートで並べ替え
-      files.sort(
-        (a, b) => compareNatural(
-          a.path.split(Platform.pathSeparator).last.toLowerCase(),
-          b.path.split(Platform.pathSeparator).last.toLowerCase(),
-        ),
-      );
+      // ナチュラルソート（拡張子を除いたファイル名で比較、ゼロ埋めも考慮）
+      files.sort((a, b) {
+        String nameA = a.path.split(Platform.pathSeparator).last;
+        String nameB = b.path.split(Platform.pathSeparator).last;
+        String baseA = nameA.contains('.')
+            ? nameA.substring(0, nameA.lastIndexOf('.'))
+            : nameA;
+        String baseB = nameB.contains('.')
+            ? nameB.substring(0, nameB.lastIndexOf('.'))
+            : nameB;
+        // ナチュラルソート
+        int cmp = compareNatural(baseA.toLowerCase(), baseB.toLowerCase());
+        if (cmp != 0) return cmp;
+        // ファイル名が同じ場合は拡張子で比較
+        return nameA.compareTo(nameB);
+      });
 
       if (files.isNotEmpty) {
         setState(() {
@@ -349,7 +358,11 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
   void _onMainScroll() {
     if (_isUserSelecting) return; // ★ユーザー選択中は自動スクロールも完全に抑制
     if (images.isEmpty) return;
-    double imageWidth = MediaQuery.of(context).size.height - 200;
+
+    final screenSize = MediaQuery.of(context).size;
+    final isPortrait = screenSize.height > screenSize.width;
+    double imageWidth = isPortrait ? screenSize.width : screenSize.height - 150;
+
     double scrollCenter =
         _mainScrollController.offset + MediaQuery.of(context).size.width / 2;
     int idx = (scrollCenter ~/ imageWidth).clamp(0, images.length - 1);
@@ -360,8 +373,14 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
       // ★ここでサムネイルも追従させたい場合のみanimateToを呼ぶ
       // だが_isUserSelecting中は呼ばないので、サムネイル選択時は追従しない
       if (!_isUserSelecting) {
+        final isPortrait =
+            MediaQuery.of(context).size.height >
+            MediaQuery.of(context).size.width;
+        final thumbnailSize = isPortrait ? 90.0 : 75.0;
+        final thumbnailSpacing = thumbnailSize + 16.0; // サムネイルサイズ + margin
+
         _thumbController.animateTo(
-          (idx * 96.0).toDouble(),
+          (idx * thumbnailSpacing).toDouble(),
           duration: const Duration(milliseconds: 300),
           curve: Curves.ease,
         );
@@ -375,7 +394,11 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
     setState(() {
       currentIndex = idx;
     });
-    double imageWidth = MediaQuery.of(context).size.height - 200;
+
+    final screenSize = MediaQuery.of(context).size;
+    final isPortrait = screenSize.height > screenSize.width;
+    double imageWidth = isPortrait ? screenSize.width : screenSize.height - 150;
+
     await _mainScrollController.animateTo(
       (idx * imageWidth),
       duration: const Duration(milliseconds: 300),
@@ -435,11 +458,26 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                       scrollDirection: Axis.horizontal,
                       itemCount: images.length,
                       itemBuilder: (context, idx) {
-                        double imageHeight =
-                            MediaQuery.of(context).size.height - 200;
+                        final screenSize = MediaQuery.of(context).size;
+                        final isPortrait = screenSize.height > screenSize.width;
+
+                        // スマホ画面サイズに応じた画像サイズを計算
+                        double imageWidth, imageHeight;
+                        if (isPortrait) {
+                          // 縦画面：幅をベースに、サムネイルエリアとアプリバーを考慮
+                          imageWidth = screenSize.width;
+                          imageHeight =
+                              screenSize.height -
+                              200; // AppBar + サムネイル + テキスト領域
+                        } else {
+                          // 横画面：高さをベースに調整
+                          imageHeight = screenSize.height - 150;
+                          imageWidth = imageHeight;
+                        }
+
                         return Center(
                           child: SizedBox(
-                            width: imageHeight, // 横幅も高さと同じ値で確保
+                            width: imageWidth,
                             height: imageHeight,
                             child: PhotoView.customChild(
                               minScale: PhotoViewComputedScale.contained,
@@ -466,7 +504,11 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                 ),
                 Container(
                   color: Colors.white,
-                  height: 100,
+                  height:
+                      MediaQuery.of(context).size.height >
+                          MediaQuery.of(context).size.width
+                      ? 120
+                      : 100, // 縦画面時は少し大きく
                   child: Scrollbar(
                     thumbVisibility: true,
                     controller: _thumbController,
@@ -475,6 +517,13 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                       scrollDirection: Axis.horizontal,
                       itemCount: images.length,
                       itemBuilder: (context, idx) {
+                        final isPortrait =
+                            MediaQuery.of(context).size.height >
+                            MediaQuery.of(context).size.width;
+                        final thumbnailSize = isPortrait
+                            ? 90.0
+                            : 75.0; // 縦画面時はサムネイルを大きく
+
                         return GestureDetector(
                           onTap: () => updateCurrentIndex(idx),
                           child: Container(
@@ -490,14 +539,14 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                             child: images[idx] is String
                                 ? Image.asset(
                                     images[idx],
-                                    width: 80,
-                                    height: 80,
+                                    width: thumbnailSize,
+                                    height: thumbnailSize,
                                     fit: BoxFit.cover,
                                   )
                                 : Image.file(
                                     images[idx],
-                                    width: 80,
-                                    height: 80,
+                                    width: thumbnailSize,
+                                    height: thumbnailSize,
                                     fit: BoxFit.cover,
                                   ),
                           ),
