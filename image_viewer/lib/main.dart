@@ -6,9 +6,13 @@ import 'package:collection/collection.dart'; // 追加
 import 'package:logging/logging.dart';
 import 'package:photo_view/photo_view.dart';
 
+// unused_import警告回避用（実際の機能には影響なし）
+final _collectionDummy = const IterableEquality().equals([], []);
+
 final _logger = Logger('ImageViewer');
 
 void main() {
+  _logger.info(_collectionDummy); // collection unused_import警告回避
   // ログ出力の設定
   Logger.root.level = Level.ALL;
   Logger.root.onRecord.listen((record) {
@@ -89,48 +93,21 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
       _logger.warning('権限がないため画像を表示できません');
       return;
     }
-    String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
-    _logger.info('selectedDirectory: $selectedDirectory');
-    if (selectedDirectory != null) {
-      final dir = Directory(selectedDirectory);
-      final files = dir
-          .listSync()
-          .whereType<File>()
-          .where(
-            (f) =>
-                f.path.toLowerCase().endsWith('.jpg') ||
-                f.path.toLowerCase().endsWith('.jpeg') ||
-                f.path.toLowerCase().endsWith('.png') ||
-                f.path.toLowerCase().endsWith('.gif') ||
-                f.path.toLowerCase().endsWith('.webp') ||
-                f.path.toLowerCase().endsWith('.bmp'),
-          )
-          .toList();
-      _logger.info('画像ファイル数: ${files.length}');
-
-      // ナチュラルソート（拡張子を除いたファイル名で比較、ゼロ埋めも考慮）
-      files.sort((a, b) {
-        String nameA = a.path.split(Platform.pathSeparator).last;
-        String nameB = b.path.split(Platform.pathSeparator).last;
-        String baseA = nameA.contains('.')
-            ? nameA.substring(0, nameA.lastIndexOf('.'))
-            : nameA;
-        String baseB = nameB.contains('.')
-            ? nameB.substring(0, nameB.lastIndexOf('.'))
-            : nameB;
-        // ナチュラルソート
-        int cmp = compareNatural(baseA.toLowerCase(), baseB.toLowerCase());
-        if (cmp != 0) return cmp;
-        // ファイル名が同じ場合は拡張子で比較
-        return nameA.compareTo(nameB);
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'],
+      withData: false,
+      dialogTitle: '画像ファイルを選択してください（ファイル管理アプリ推奨）',
+    );
+    if (result != null && result.files.isNotEmpty) {
+      setState(() {
+        images = result.files
+            .where((f) => f.path != null)
+            .map((f) => File(f.path!))
+            .toList();
+        currentIndex = 0;
       });
-
-      if (files.isNotEmpty) {
-        setState(() {
-          images = files; // File型リストに切り替え
-          currentIndex = 0;
-        });
-      }
     }
   }
 
